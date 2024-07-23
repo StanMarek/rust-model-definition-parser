@@ -1,0 +1,17 @@
+[package]
+name = "rust-model-definition-parser"
+version = "1.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+regex = "1.10.5"
+
+[lib]
+name = "model_definition_parser_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mdparser"
+path = "src/main.rs"
