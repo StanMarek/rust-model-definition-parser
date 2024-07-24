@@ -1,53 +1,81 @@
-use clap::{Arg, Subcommand};
-use model_definition_parser_lib::{
+use std::{fs, path::Path};
+
+use clap::{arg, command, Parser, Subcommand};
+use model_definition_parser::{
     parser::{parse_model_definition, remove_duplicate_fields},
     typescript::generate_typescript,
 };
 
+#[derive(Parser, Debug)]
+#[command(
+    name = "Model Definition Parser",
+    version = "1.1.0",
+    about = "Parses model definitions and generates TypeScript types",
+    long_about = "A comprehensive tool to parse model definitions from various sources and generate corresponding TypeScript types. Supports input from local files and Cosmos DB."
+)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Generates TypeScript definitions
+    #[clap(subcommand)]
+    Generate(GenerateArgs),
+}
+
+#[derive(Subcommand, Debug)]
+enum GenerateArgs {
+    /// Generates TypeScript definitions from model file
+    File {
+        /// Sets the input model file
+        #[arg(short, long)]
+        source: String,
+
+        /// Sets the output TypeScript file
+        #[arg(short, long)]
+        target: String,
+    },
+    /// Generates TypeScript definitions from Cosmos DB
+    Cosmos {
+        /// Sets the Cosmos DB URL
+        #[arg(short, long)]
+        url: String,
+
+        /// Sets the asset group - collection name
+        #[arg(short, long)]
+        asset_group: String,
+    },
+}
+
 fn main() {
-    let matches = App::new("Model Parser")
-        .version("1.1.0")
-        .author("Your Name <your.email@example.com>")
-        .about("Parses model definitions and generates TypeScript types")
-        .subcommand(
-            SubCommand::with_name("generate")
-                .about("Generates TypeScript definitions from model file")
-                .arg(
-                    Arg::with_name("source")
-                        .short("s")
-                        .long("source")
-                        .value_name("FILE")
-                        .help("Sets the input model file")
-                        .required(true)
-                        .takes_value(true),
-                )
-                .arg(
-                    Arg::with_name("target")
-                        .short("t")
-                        .long("target")
-                        .value_name("FILE")
-                        .help("Sets the output TypeScript file")
-                        .required(true)
-                        .takes_value(true),
-                ),
-        )
-        .subcommand(SubCommand::with_name("help").about("Displays this help message"))
-        .get_matches();
+    let args = Args::parse();
 
-    if let Some(matches) = matches.subcommand_matches("generate") {
-        let source = matches.value_of("source").unwrap();
-        let target = matches.value_of("target").unwrap();
+    match &args.command {
+        Commands::Generate(generate_command) => match generate_command {
+            GenerateArgs::File { source, target } => {
+                let mut models = parse_model_definition(source);
 
-        let mut models = parse_model_definition(source);
-        dbg!(&models);
-        remove_duplicate_fields(&mut models);
-        let ts = generate_typescript(models);
+                remove_duplicate_fields(&mut models);
+                let ts = generate_typescript(models);
 
-        std::fs::write(target, ts).expect("Unable to write file");
-        println!("TypeScript definitions generated at {}", target);
-    } else if matches.subcommand_matches("help").is_some() {
-        println!("{}", matches.usage());
-    } else {
-        println!("{}", matches.usage());
+                if let Some(parent) = Path::new(target).parent() {
+                    if !parent.exists() {
+                        fs::create_dir_all(parent).expect("Unable to create directories");
+                    }
+                }
+
+                fs::write(target, ts).expect("Unable to write file");
+                println!("TypeScript definitions generated at {}", target);
+            }
+            GenerateArgs::Cosmos { url, asset_group } => {
+                // Placeholder for Cosmos DB integration logic
+                println!(
+                    "Fetching data from Cosmos DB at {} for asset group {}",
+                    url, asset_group
+                );
+            }
+        },
     }
 }
