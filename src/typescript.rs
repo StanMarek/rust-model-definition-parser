@@ -16,7 +16,6 @@ pub fn generate_typescript(models: HashMap<String, Model>) -> String {
     ts.push_str("export type OwnershipYears = {\n");
     ts.push_str("    percent: WrappedValue<number>;\n");
     ts.push_str("    year: WrappedValue<number>;\n");
-    ts.push_str("    _keyValue: number;\n");
     ts.push_str("};\n\n");
 
     ts.push_str("export type Operator = {\n");

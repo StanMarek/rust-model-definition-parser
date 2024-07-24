@@ -20,15 +20,16 @@ pub struct Model {
 }
 
 pub fn parse_model_definition(file_path: &str) -> HashMap<String, Model> {
-    let mut models = HashMap::new();
+    let mut models: HashMap<String, Model> = HashMap::new();
     let path = Path::new(file_path);
     let file = File::open(path).expect("Could not open file");
 
     let mut current_model: Option<Model> = None;
+
     let re_field = Regex::new(r"^\s+(\w+)\s+(\w+)(?:\s+type\s*:\s*(\w+))?").unwrap();
 
     for line in io::BufReader::new(file).lines() {
-        let line = line.expect("Could not read line").trim().to_string();
+        let line = line.expect("Could not read line").to_string();
 
         if should_skip_line(&line) {
             continue;
@@ -75,7 +76,7 @@ fn should_skip_line(line: &str) -> bool {
     let generic_asset_fields = ["owners", "operators"];
     if generic_asset_fields
         .iter()
-        .any(|&field| line.starts_with(field))
+        .any(|&field| line.trim_start().starts_with(field))
     {
         return true;
     }
@@ -90,14 +91,14 @@ fn should_skip_line(line: &str) -> bool {
 
 fn add_parent_specific_fields(line: &str, current_model: &mut Option<Model>) {
     if let Some(ref mut model) = current_model {
-        if line.starts_with("year") {
+        if line.trim_start().starts_with("year") {
             model.fields.push(Field {
                 name: "year".to_string(),
                 field_type: "text".to_string(),
                 sub_type: None,
             });
         }
-        if line.starts_with("annual") {
+        if line.trim_start().starts_with("annual") {
             model.fields.push(Field {
                 name: "annual".to_string(),
                 field_type: "number".to_string(),

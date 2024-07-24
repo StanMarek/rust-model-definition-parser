@@ -5,7 +5,6 @@ use model_definition_parser_lib::{
 
 fn main() {
     let mut models = parse_model_definition("demo/source/model.txt");
-
     remove_duplicate_fields(&mut models);
     let ts = generate_typescript(models);
     println!("{}", ts);
