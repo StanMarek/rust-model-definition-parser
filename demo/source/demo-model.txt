@@ -1,0 +1,12 @@
+model asset:
+  textField text
+  numberField number
+  arrayField list type : arrayType
+
+child arrayType
+  field1 text
+  childField child type : childType
+
+child childType
+  field1 text
+  field2 number
