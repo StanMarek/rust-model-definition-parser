@@ -1,55 +1,18 @@
 use std::{fs, path::Path};
 
-use clap::{arg, command, Parser, Subcommand};
+use clap::Parser;
 use model_definition_parser::{
+    cli::{Args, Commands, GenerateArgs},
     parser::{parse_model_definition, remove_duplicate_fields},
     typescript::generate_typescript,
 };
+use mongodb::{
+    bson::{doc, Document},
+    Client, Collection,
+};
 
-#[derive(Parser, Debug)]
-#[command(
-    name = "Model Definition Parser",
-    version = "1.1.0",
-    about = "Parses model definitions and generates TypeScript types",
-    long_about = "A comprehensive tool to parse model definitions from various sources and generate corresponding TypeScript types. Supports input from local files and Cosmos DB."
-)]
-struct Args {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    /// Generates TypeScript definitions
-    #[clap(subcommand)]
-    Generate(GenerateArgs),
-}
-
-#[derive(Subcommand, Debug)]
-enum GenerateArgs {
-    /// Generates TypeScript definitions from model file
-    File {
-        /// Sets the input model file
-        #[arg(short, long)]
-        source: String,
-
-        /// Sets the output TypeScript file
-        #[arg(short, long)]
-        target: String,
-    },
-    /// Generates TypeScript definitions from Cosmos DB
-    Cosmos {
-        /// Sets the Cosmos DB URL
-        #[arg(short, long)]
-        url: String,
-
-        /// Sets the asset group - collection name
-        #[arg(short, long)]
-        asset_group: String,
-    },
-}
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
     match &args.command {
@@ -69,12 +32,59 @@ fn main() {
                 fs::write(target, ts).expect("Unable to write file");
                 println!("TypeScript definitions generated at {}", target);
             }
-            GenerateArgs::Cosmos { url, asset_group } => {
+            GenerateArgs::Cosmos {
+                url,
+                db_name,
+                collection,
+                search,
+                value,
+                model_field,
+            } => {
                 // Placeholder for Cosmos DB integration logic
                 println!(
-                    "Fetching data from Cosmos DB at {} for asset group {}",
-                    url, asset_group
+                    "Fetching data from Cosmos DB at {} with database {} and collection {} using search query {} and model field {}",
+                    url, db_name, collection, search, model_field
                 );
+
+                let client = Client::with_uri_str(url).await.unwrap();
+                let db = client.database(db_name);
+
+                let collection: Collection<Document> = db.collection(collection);
+
+                let query = doc! { search: value };
+
+                let document = collection
+                    .find_one(query)
+                    .await
+                    .unwrap()
+                    .expect("Failed to execute find_one");
+
+                let projected_field = document
+                    .get(model_field)
+                    .expect("Field not found in the document");
+
+                let output_path = "output.txt";
+                if let Some(parent) = Path::new(output_path).parent() {
+                    if !parent.exists() {
+                        fs::create_dir_all(parent).expect("Unable to create directories");
+                    }
+                }
+
+                // Serialize the field and write to the file
+                let serialized = serde_json::to_string_pretty(projected_field)
+                    .unwrap()
+                    .split('\n')
+                    .collect::<String>();
+
+                for line in serialized.lines() {
+                    println!("{}", line);
+                }
+
+                // println!("Field: {}", serialized);
+
+                // fs::write(output_path, serialized).expect("Unable to write file");
+
+                // println!("Document: {:?}", document);
             }
         },
     }
